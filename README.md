@@ -63,7 +63,7 @@ Download and install the official Windows `cloudflared` MSI from [Cloudflare's d
 .\scripts\start-cloudflare-tunnel.ps1
 ```
 
-Keep the tunnel window open. Copy the HTTPS `trycloudflare.com` URL printed by Cloudflare. Anyone who has that URL can reach the API, so share it only with people you intend to access the app. The app still requires login.
+Keep the tunnel window open. Copy the HTTPS `trycloudflare.com` URL printed by Cloudflare. Anyone who has that URL can reach the API, so share it only with people you intend to access the app. The app still requires login. The tunnel startup script uses an isolated temporary configuration so an existing named tunnel configuration on the computer cannot send API requests to a different local port.
 
 Quick Tunnels are for testing/development, not production: they have no uptime guarantee, their hostname changes when restarted, and they stop working when the tunnel process exits. For a stable always-on address, use a named Cloudflare Tunnel with a domain configured in your Cloudflare account.
 

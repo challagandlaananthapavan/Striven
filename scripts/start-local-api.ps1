@@ -7,14 +7,29 @@ if ($env:VIRTUAL_ENV) {
     $pythonCandidates += Join-Path $env:VIRTUAL_ENV "Scripts\python.exe"
 }
 
-$pythonCandidates += Join-Path $projectRoot ".venv\Scripts\python.exe"
 $pythonCandidates += Join-Path (Split-Path $projectRoot -Parent) ".venv\Scripts\python.exe"
-$pythonPath = $pythonCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+$pythonCandidates += Join-Path $projectRoot ".venv\Scripts\python.exe"
+$pythonPath = $null
+
+foreach ($candidate in $pythonCandidates) {
+    if (-not (Test-Path $candidate)) {
+        continue
+    }
+
+    & $candidate -c "import sys; print(sys.executable)" *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $pythonPath = $candidate
+        break
+    }
+}
 
 if (-not $pythonPath) {
     $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
     if ($pythonCommand) {
-        $pythonPath = $pythonCommand.Source
+        & $pythonCommand.Source -c "import sys; print(sys.executable)" *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $pythonPath = $pythonCommand.Source
+        }
     }
 }
 

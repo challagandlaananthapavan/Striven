@@ -16,7 +16,16 @@ Write-Host "Starting a temporary public HTTPS tunnel to http://127.0.0.1:8000."
 Write-Host "After Cloudflare prints the trycloudflare.com URL, set that URL as VITE_API_BASE_URL in Netlify and redeploy."
 Write-Host "Keep this window open; stopping it disables public API access."
 
-& $cloudflaredPath tunnel --url http://127.0.0.1:8000
-if ($LASTEXITCODE -ne 0) {
-    throw "cloudflared exited with code $LASTEXITCODE."
+Write-Host "Using an isolated temporary config so any existing named-tunnel routes do not override this local API route."
+$quickTunnelConfig = New-TemporaryFile
+
+try {
+    Set-Content -LiteralPath $quickTunnelConfig.FullName -Value "protocol: quic" -Encoding ascii
+    & $cloudflaredPath --config $quickTunnelConfig.FullName tunnel --url http://127.0.0.1:8000
+    if ($LASTEXITCODE -ne 0) {
+        throw "cloudflared exited with code $LASTEXITCODE."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $quickTunnelConfig.FullName -Force -ErrorAction SilentlyContinue
 }
