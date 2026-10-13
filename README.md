@@ -47,13 +47,13 @@ The existing Streamlit application remains unchanged. The separate React/Vite fr
 
 Keep the private project-root `.env` on the computer running the API. It must have valid `API_SECRET_KEY` (at least 32 characters), `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `EMPLOYEE_USERNAME`, `EMPLOYEE_PASSWORD`, and `GROQ_API_KEY` values. Do not copy `.env` to GitHub or Netlify. Use fresh credentials and a rotated Groq key if any previous values were shared.
 
-Open PowerShell in the project directory and run:
+Open PowerShell in the project directory and run this single command:
 
 ```powershell
-.\scripts\start-local-api.ps1
+.\scripts\start-app.ps1
 ```
 
-Leave that PowerShell window open. The script runs Uvicorn bound to `127.0.0.1:8000` (not directly exposed to the local network) and allows the Netlify site origin for browser requests. Confirm the API is running by opening `http://127.0.0.1:8000/api/health`; it should return `{"status":"ok"}`.
+The script starts the API in a separate PowerShell window if it is not already running, waits for its health check, then starts Cloudflare Tunnel in the current window. If the API is already healthy, it will reuse it instead of trying to bind port 8000 again. Leave both windows open. The API listens only on `127.0.0.1:8000` (not directly exposed to the local network) and allows the Netlify site origin for browser requests. Confirm the API is running by opening `http://127.0.0.1:8000/api/health`; it should return `{"status":"ok"}`.
 
 ### Install and start Cloudflare Tunnel
 
