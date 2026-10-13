@@ -1,0 +1,14 @@
+streamlit>=1.42,<2
+python-dotenv
+groq
+faiss-cpu
+numpy
+rank-bm25
+sentence-transformers
+pymupdf
+Pillow
+pandas
+openpyxl
+xlrd
+paddlepaddle; python_version < "3.14"
+paddleocr; python_version < "3.14"

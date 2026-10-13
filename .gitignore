@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Runtime data
+vector_store/*
+data/raw/*
+data/processed/*
+reports/*
+logs/*
