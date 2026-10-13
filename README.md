@@ -39,27 +39,44 @@ After signing in, admins land on the **Workspace** page, where buttons open **As
 
 The app uses the existing `vector_store` when it is available. Uploaded documents are saved under `data/raw`; re-indexing uses the CPU-based embedding and OCR pipeline and may take some time.
 
-## Public Netlify frontend and API
+## Public Netlify frontend with a computer-hosted API
 
-The existing Streamlit application remains unchanged. The separate React/Vite frontend is in `frontend/`, and its FastAPI service is in `api/`. For public access from phones and computers on any network, host the API on Render with persistent disk storage and host the static frontend on Netlify. The `render.yaml` blueprint configures the API service, HTTPS health check, model-cache paths, and a persistent `/var/data` disk. `netlify.toml` configures the frontend build. The frontend build output is `frontend/dist/`.
+The existing Streamlit application remains unchanged. The separate React/Vite frontend is in `frontend/`, and its FastAPI backend is in `api/`. Netlify hosts the static frontend; the backend runs on your own Windows computer and Cloudflare Tunnel provides a public HTTPS route to it. The computer must stay powered on, online, and running both the API and tunnel whenever anyone uses the site. This approach keeps the account database, uploaded documents, indexes, and logs on that computer. `netlify.toml` configures the frontend build; the output is `frontend/dist/`.
 
-### Deploy the API to Render
+### Start the API on your Windows computer
 
-1. Push the project to GitHub, including `api/`, `src/`, `frontend/`, `render.yaml`, and `netlify.toml`. Keep `.env` and all local secrets out of Git.
-2. In Render, select **New → Blueprint**, connect the repository, and apply its `render.yaml`.
-3. Enter private values for `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `EMPLOYEE_USERNAME`, `EMPLOYEE_PASSWORD`, and `GROQ_API_KEY` when Render requests them. Render generates `API_SECRET_KEY`. Use new, strong passwords and a newly generated Groq key; never put these values in the frontend or Netlify.
-4. Wait for the service to deploy. Render assigns an HTTPS URL such as `https://strivenrag-api.onrender.com`. Confirm `https://<your-api-host>/api/health` returns `{"status":"ok"}`.
+Keep the private project-root `.env` on the computer running the API. It must have valid `API_SECRET_KEY` (at least 32 characters), `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `EMPLOYEE_USERNAME`, `EMPLOYEE_PASSWORD`, and `GROQ_API_KEY` values. Do not copy `.env` to GitHub or Netlify. Use fresh credentials and a rotated Groq key if any previous values were shared.
 
-The blueprint runs one API worker and attaches a 20 GB persistent disk at `/var/data`. Accounts, activity logs, uploaded files, processed data, vector indexes, and downloaded model files use this mount. It selects a paid Render `standard` service because persistent disks are not available on free web services. Keep a backup of the persistent disk; deleting/replacing it loses the server's accounts, documents, and index.
+Open PowerShell in the project directory and run:
 
-### Connect and deploy the Netlify frontend
+```powershell
+.\scripts\start-local-api.ps1
+```
 
-1. In **Netlify → Site configuration → Environment variables**, set `VITE_API_BASE_URL` to the Render HTTPS base URL, without a path (for example, `https://strivenrag-api.onrender.com`).
-2. Trigger a new Netlify deploy so Vite embeds the public API URL into the frontend bundle.
-3. Open `https://strivenrag.netlify.app/` on your phone or another computer and sign in. The API CORS allowlist in `render.yaml` includes this exact Netlify origin.
-4. The Render persistent disk starts empty. Sign in using the bootstrap accounts configured in Render and upload/index documents through the frontend. Local `logs/accounts.sqlite3`, `data/`, and `vector_store/` are ignored by Git and are not transferred automatically.
+Leave that PowerShell window open. The script runs Uvicorn bound to `127.0.0.1:8000` (not directly exposed to the local network) and allows the Netlify site origin for browser requests. Confirm the API is running by opening `http://127.0.0.1:8000/api/health`; it should return `{"status":"ok"}`.
 
-The following commands are for a local production-build check. Netlify builds the frontend from the repository using `netlify.toml`. If deploying manually, publish the contents of `frontend/dist/`.
+### Install and start Cloudflare Tunnel
+
+Download and install the official Windows `cloudflared` MSI from [Cloudflare's download page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/). Open a new PowerShell window after installation so the updated PATH is loaded. In that second window, run:
+
+```powershell
+.\scripts\start-cloudflare-tunnel.ps1
+```
+
+Keep the tunnel window open. Copy the HTTPS `trycloudflare.com` URL printed by Cloudflare. Anyone who has that URL can reach the API, so share it only with people you intend to access the app. The app still requires login.
+
+Quick Tunnels are for testing/development, not production: they have no uptime guarantee, their hostname changes when restarted, and they stop working when the tunnel process exits. For a stable always-on address, use a named Cloudflare Tunnel with a domain configured in your Cloudflare account.
+
+### Point Netlify at the tunnel
+
+1. In **Netlify → Site configuration → Environment variables**, set `VITE_API_BASE_URL` to the complete HTTPS `trycloudflare.com` URL, with no trailing `/api` path. This variable must be set in Netlify; putting it in your local project `.env` does not configure the hosted website.
+2. Trigger a new production deploy. Vite embeds this setting at build time.
+3. Check `https://<your-tunnel-host>/api/health`; it should return `{"status":"ok"}`. Then open [strivenrag.netlify.app](https://strivenrag.netlify.app/) and sign in with the accounts configured on the API computer.
+4. If the Quick Tunnel URL changes after a restart, replace the Netlify variable and deploy the frontend again.
+
+The local account database, documents, vector index, and logs stay on the API computer; they are not uploaded to Netlify or GitHub. Back up the project `logs/`, `data/`, and `vector_store/` folders. The API computer must remain awake and connected to the internet, with both PowerShell processes running, for remote users to access the application.
+
+Netlify builds the frontend from the repository using `netlify.toml`. To build it locally and publish manually, run:
 
 ```powershell
 Set-Location 'D:\striven_rag_project\RAG_CORE_BASELINE_v1.0\RAG_CORE_BASELINE_v1.0\frontend'
