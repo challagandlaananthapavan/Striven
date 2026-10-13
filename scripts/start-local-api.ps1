@@ -1,6 +1,55 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$portProbe = [System.Net.Sockets.TcpClient]::new()
+$portInUse = $false
+
+try {
+    $connectTask = $portProbe.ConnectAsync("127.0.0.1", 8000)
+    try {
+        $portInUse = $connectTask.Wait(1000) -and $portProbe.Connected
+    }
+    catch [System.AggregateException] {
+        $portInUse = $false
+    }
+}
+finally {
+    $portProbe.Dispose()
+}
+
+if ($portInUse) {
+    $healthRequest = [System.Net.HttpWebRequest]::Create("http://127.0.0.1:8000/api/health")
+    $healthRequest.Method = "GET"
+    $healthRequest.Timeout = 3000
+    $healthResponse = $null
+
+    try {
+        $healthResponse = $healthRequest.GetResponse()
+        $reader = [System.IO.StreamReader]::new($healthResponse.GetResponseStream())
+        try {
+            $healthBody = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+
+        if ($healthResponse.StatusCode -eq [System.Net.HttpStatusCode]::OK -and $healthBody -match '"status"\s*:\s*"ok"') {
+            Write-Host "The API is already running and healthy at http://127.0.0.1:8000. No second copy was started."
+            return
+        }
+
+        throw "Port 8000 is occupied, but the service did not return the expected API health response. Stop the conflicting process or configure another port."
+    }
+    catch [System.Net.WebException] {
+        throw "Port 8000 is occupied, but the API health check failed. Stop the conflicting process or check its logs before starting this API."
+    }
+    finally {
+        if ($healthResponse) {
+            $healthResponse.Dispose()
+        }
+    }
+}
+
 $pythonCandidates = @()
 
 if ($env:VIRTUAL_ENV) {
